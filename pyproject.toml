@@ -1,0 +1,56 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "copyright-kit"
+version = "1.0.0"
+description = "面向中国版权保护中心 (CPCC) 规范的全自动 60 页软著源程序提取、脱敏、排版与门禁套件 (纯标准库零依赖直出 docx)"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [
+    { name = "netxs139", email = "netxs139@139.com" }
+]
+requires-python = ">=3.8"
+keywords = [
+    "cpcc",
+    "copyright",
+    "docx",
+    "openxml",
+    "source-code",
+    "cleaner",
+    "software-copyright",
+    "agent-skill"
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Utilities",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/netxs139/copyright-kit"
+Repository = "https://github.com/netxs139/copyright-kit.git"
+Issues = "https://github.com/netxs139/copyright-kit/issues"
+
+[project.scripts]
+copyright-kit = "scripts.export_copyright_source:main"
+audit-copyright = "scripts.audit_copyright_package:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["scripts", "templates"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
