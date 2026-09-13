@@ -1,6 +1,6 @@
-# 📜 Copyright-Kit (全自动软件著作权申报材料生成与合规门禁套件)
+# 📜 Copyright-Kit (全自动软件著作权申报材料生成套件)
 
-> **面向中国版权保护中心 (CPCC) 审查规范的自包含、零依赖、工业级软著材料自动化提取与门禁工具链。**  
+> **面向中国版权保护中心 (CPCC) 审查规范的自包含、零依赖、专业的软著材料自动化提取工具。**  
 > 无论是作为 **AI Agent Skill**（智能体技能）融入日常研发对话，还是作为 **独立 CLI 命令行** 运行于本地终端与 CI/CD 流水线，均可实现 **60 秒一键交付** 100% 合规的软著申报材料包！
 
 [![CI](https://github.com/netxs139/copyright-kit/actions/workflows/ci.yml/badge.svg)](https://github.com/netxs139/copyright-kit/actions/workflows/ci.yml)
@@ -11,11 +11,11 @@
 
 ---
 
-## 💡 为什么需要 Copyright-Kit？
+## 💡 为什么需要它？
 
 申报《计算机软件著作权登记证书》是中国境内软件发布、高企认定、企业合规以及主流应用商店（华为、小米、OPPO、vivo、App Store 等）上架提审的法定前置要件。
 
-然而，传统的申报材料准备过程繁琐且极易踩坑被打回：
+而传统的申报材料准备过程繁琐且极易踩坑被打回：
 
 | 维度 | 传统手工准备痛点 | Copyright-Kit 自动化解决方案 |
 | :--- | :--- | :--- |
