@@ -58,7 +58,7 @@ def audit_source_file(
     for idx, page in enumerate(pages, start=1):
         raw_lines = page.splitlines()
         # 排除空行
-        lines = [l for l in raw_lines if l.strip()]
+        lines = [line_text for line_text in raw_lines if line_text.strip()]
 
         if not lines:
             continue
@@ -75,15 +75,19 @@ def audit_source_file(
             errors.append(f"第 {idx} 页页眉异常: 未包含指定版本号 '{expected_ver}'")
 
         # 扣除页眉行与横线分隔线后的有效代码行数
-        code_lines = [l for l in lines[2:] if l.strip() and not l.strip().startswith("---")]
+        code_lines = [
+            line_text
+            for line_text in lines[2:]
+            if line_text.strip() and not line_text.strip().startswith("---")
+        ]
         if len(code_lines) < 50:
             errors.append(f"第 {idx} 页有效代码行数不足: 仅有 {len(code_lines)} 行 (CPCC 法定硬指标: 每页 >=50 行)")
 
         # 检查违规敏感词
-        for line_no, l in enumerate(lines, start=1):
+        for line_no, line_text in enumerate(lines, start=1):
             for kw in FORBIDDEN_KEYWORDS:
-                if re.search(rf"\b{kw}\b", l, re.IGNORECASE):
-                    errors.append(f"第 {idx} 页第 {line_no} 行检测到违规敏感词 '{kw}': '{l[:40]}...'")
+                if re.search(rf"\b{kw}\b", line_text, re.IGNORECASE):
+                    errors.append(f"第 {idx} 页第 {line_no} 行检测到违规敏感词 '{kw}': '{line_text[:40]}...'")
 
     return errors
 
@@ -116,7 +120,7 @@ def main():
         target_dir = (Path.cwd() / "docs" / "copyright").resolve()
 
     print("=" * 68)
-    print(f"🛡️ 正在执行软件著作权申报材料合规门禁审计 (CPCC Pre-flight Doctor)")
+    print("🛡️ 正在执行软件著作权申报材料合规门禁审计 (CPCC Pre-flight Doctor)")
     print(f"   目标目录: {target_dir}")
     print("=" * 68)
 
@@ -139,7 +143,7 @@ def main():
     src_errs = audit_source_file(source_txt, args.app_name, args.version)
     all_errors.extend(src_errs)
     if not src_errs:
-        print(f"✅ [2/4] 60 页源程序文档规格、行数与敏感词零容忍 100% 达标！")
+        print("✅ [2/4] 60 页源程序文档规格、行数与敏感词零容忍 100% 达标！")
     else:
         for e in src_errs[:5]:  # 只打印前 5 条避免刷屏
             print(f"❌ {e}")
@@ -160,7 +164,7 @@ def main():
     # 4. 申报表卡存在性
     info_file = target_dir / "cpcc_application_info.md"
     if info_file.exists():
-        print(f"✅ [4/4] CPCC 在线申请表填报字段卡就绪")
+        print("✅ [4/4] CPCC 在线申请表填报字段卡就绪")
     else:
         all_errors.append(f"缺失 CPCC 申报表字段卡: {info_file}")
 
