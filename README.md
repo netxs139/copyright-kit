@@ -9,6 +9,8 @@
 [![Dependencies](https://img.shields.io/badge/dependencies-0%20(Standard%20Library)-brightgreen.svg)]()
 [![CPCC Standard](https://img.shields.io/badge/CPCC-100%25%20Compliant-success.svg)]()
 
+> 📖 **快速导航**: [人类贡献指南 (CONTRIBUTING.md)](./CONTRIBUTING.md) | [Skill 智能体集成指南](.agents/skills/copyright-kit/SKILL.md)
+
 ---
 
 ## 💡 为什么需要它？
