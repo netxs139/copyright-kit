@@ -1,5 +1,7 @@
 """tests/test_copyright_kit.py — 软件著作权抽取与审计工具链自动化单元测试。"""
 
+from __future__ import annotations
+
 import json
 from pathlib import Path
 import pytest

@@ -9,6 +9,8 @@
 5. 零第三方依赖 (Zero-Dependency)，仅使用 Python 标准库，跨平台开箱即用。
 """
 
+from __future__ import annotations
+
 import argparse
 import json
 import re
