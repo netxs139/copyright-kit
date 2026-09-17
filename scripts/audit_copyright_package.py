@@ -9,6 +9,8 @@
 5. 用户使用说明书章节大纲必须完备，且与源程序页眉命名 100% 交叉一致。
 """
 
+from __future__ import annotations
+
 import argparse
 import re
 import sys
