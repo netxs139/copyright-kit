@@ -68,3 +68,5 @@ docs/history/
 scratch/
 test_tmp/
 *.tmp
+progress.txt
+

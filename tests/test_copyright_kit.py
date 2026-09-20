@@ -5,16 +5,27 @@ from __future__ import annotations
 import json
 from pathlib import Path
 import pytest
-from scripts.audit_copyright_package import audit_naming, audit_source_file
+from scripts.audit_copyright_package import (
+    audit_application_form,
+    audit_cross_materials_alignment,
+    audit_design_document,
+    audit_manual_document,
+    audit_naming,
+    audit_source_file,
+    audit_source_package,
+)
 from scripts.export_copyright_source import (
     clean_source_line,
     detect_app_name,
     detect_src_dirs,
     export_as_docx,
+    export_as_pdf,
     is_excluded,
+    normalize_app_and_version,
     paginate_source_code,
     update_application_card_sloc,
 )
+
 
 
 def test_clean_source_line_removes_forbidden_keywords():
@@ -171,5 +182,144 @@ def test_export_as_docx_generation(tmp_path: Path):
         assert "第 1 页" in doc_xml
         assert "第 2 页" in doc_xml
         assert "const val_0 = 0;" in doc_xml
+
+
+def test_normalize_app_and_version():
+    """Given 各种格式的应用名称与版本号 When 进行规范化 Then 输出干净的基础名称、大写版本与全称."""
+    # 1. 全称尾部自带版本号
+    base, ver, full = normalize_app_and_version("SeedFlow家庭资产数字化记账软件 V1.0", "V1.0")
+    assert base == "SeedFlow家庭资产数字化记账软件"
+    assert ver == "V1.0"
+    assert full == "SeedFlow家庭资产数字化记账软件 V1.0"
+
+    # 2. 全称不带版本号
+    base2, ver2, full2 = normalize_app_and_version("SeedFlow家庭资产数字化记账软件", "V1.0")
+    assert base2 == "SeedFlow家庭资产数字化记账软件"
+    assert ver2 == "V1.0"
+    assert full2 == "SeedFlow家庭资产数字化记账软件 V1.0"
+
+    # 3. 小写 v 自动转为大写 V
+    base3, ver3, full3 = normalize_app_and_version("某某协同系统", "v2.1.0")
+    assert ver3 == "V2.1.0"
+    assert full3 == "某某协同系统 V2.1.0"
+
+
+def test_export_as_pdf_generation(tmp_path: Path):
+    """Given 源码行集合 When 导出为官方 PDF 格式 Then 纯标准库输出符合规格的 A4 UTF-8 PDF 文件."""
+    lines = [f"const record_{i} = {i}; // 业务逻辑代码" for i in range(110)]
+    pdf_file = tmp_path / "source_code_60pages.pdf"
+
+    export_as_pdf(
+        lines=lines,
+        app_name="SeedFlow家庭资产数字化记账软件 V1.0",
+        version="V1.0",
+        output_pdf_path=pdf_file,
+        lines_per_page=55,
+        total_pages=2,
+    )
+
+    assert pdf_file.exists()
+    assert pdf_file.stat().st_size > 1000
+
+    content_bytes = pdf_file.read_bytes()
+    assert content_bytes.startswith(b"%PDF-1.4")
+    assert b"%%EOF" in content_bytes
+    assert b"/STSong-Light" in content_bytes
+    assert b"/UniGB-UTF16-H" in content_bytes
+
+
+def get_template_path() -> Path:
+    candidates = [
+        Path(__file__).resolve().parent.parent / "templates",
+        Path(__file__).resolve().parent.parent / ".agents" / "skills" / "copyright-kit" / "templates",
+        Path(__file__).resolve().parent.parent.parent / "copyright-kit" / "templates",
+    ]
+    for c in candidates:
+        if (c / "cpcc_form_fields.md").exists():
+            return c
+    return candidates[0]
+
+
+def test_audit_application_form_with_template():
+    """Given 模板库中的标准三页申请表 When 运行门禁审计 Then 100% 验证通过且字数结构达标."""
+    template_path = get_template_path()
+    errs, meta = audit_application_form(template_path)
+    assert errs == [], f"Template cpcc_form_fields.md should pass audit, but got: {errs}"
+    assert meta["form_version"] == "{{VERSION}}"
+
+
+def test_audit_application_form_word_count_limits(tmp_path: Path):
+    """Given 申请表主要功能字数不足或结构缺失 When 审计 Then 拦截并提示."""
+    short_card = tmp_path / "cpcc_application_info.md"
+    # 字数不足 500 字
+    short_card.write_text("""
+# 申请表
+| **软件全称** | `测试软件 V1.0` |
+| **版本号** | `V1.0` |
+| **权利获得方式** | `原始取得` |
+| **软件分类** | `应用软件` |
+| **软件说明** | `原创` |
+| **开发方式** | `独立开发` |
+| **开发完成日期** | `2026-03-01` |
+| **发表状态** | `未发表` |
+| **著作权人** | `测试公司` |
+| **硬件环境** | `Mac` |
+| **操作系统** | `macOS` |
+| **开发工具** | `VSCode` |
+| **源程序量** | `1000` 行 |
+| **开发目的** | `测试目的` |
+| **面向领域** | `金融` |
+| **技术特点** | `高性能` |
+
+```text
+这是一个简短的功能描述，远远不足五百字。
+```
+""", encoding="utf-8")
+
+    errs, _ = audit_application_form(tmp_path)
+    assert any("字数严重不足" in e for e in errs)
+    assert any("研发背景" in e for e in errs)
+
+
+def test_audit_design_document_validation():
+    """Given 详细设计说明书模板 When 审计 Then 验证流程图与章节完整性."""
+    template_path = get_template_path()
+    doc_path = template_path / "design_specification_template.md"
+    assert doc_path.exists()
+    content = doc_path.read_text(encoding="utf-8")
+    assert "```mermaid" in content
+    assert "总体技术架构" in content
+    assert "业务流程" in content
+
+
+
+
+def test_audit_cross_materials_alignment_strict():
+    """Given 申报材料间存在大小写不一致 (V1.0 vs v1.0) 或全称不一致 When 审计 Then 严格阻断拦截."""
+    # 1. 大小写不一致
+    mismatched_meta = {
+        "form_version": "V1.0",
+        "source_version": "v1.0",
+        "form_app_name": "测试协同软件 V1.0",
+        "source_full_title": "测试协同软件 V1.0",
+    }
+    errs = audit_cross_materials_alignment(mismatched_meta)
+    assert len(errs) > 0
+    assert any("版本号不一致" in e for e in errs)
+
+    # 2. 完全一致
+    aligned_meta = {
+        "form_version": "V1.0",
+        "source_version": "V1.0",
+        "manual_version": "V1.0",
+        "design_version": "V1.0",
+        "form_app_name": "SeedFlow家庭资产数字化记账软件 V1.0",
+        "source_full_title": "SeedFlow家庭资产数字化记账软件 V1.0",
+        "manual_app_name": "SeedFlow家庭资产数字化记账软件 V1.0",
+        "design_app_name": "SeedFlow家庭资产数字化记账软件 V1.0",
+    }
+    errs_aligned = audit_cross_materials_alignment(aligned_meta)
+    assert errs_aligned == []
+
 
 
