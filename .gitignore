@@ -64,6 +64,7 @@ venv.bak/
 
 # Temporary outputs & copyright generation test artifacts
 docs/copyright/
+docs/history/
 scratch/
 test_tmp/
 *.tmp
