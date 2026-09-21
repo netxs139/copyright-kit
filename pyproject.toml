@@ -46,6 +46,7 @@ Issues = "https://github.com/netxs139/copyright-kit/issues"
 [project.scripts]
 copyright-kit = "scripts.export_copyright_source:main"
 audit-copyright = "scripts.audit_copyright_package:main"
+export-doc = "scripts.export_document_docx:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["scripts", "templates"]

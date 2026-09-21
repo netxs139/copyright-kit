@@ -77,13 +77,23 @@ python3 <path-to-skill>/scripts/export_copyright_source.py \
 > - 产物直出 `docs/copyright/source_code_60pages.pdf` (官方标准 UTF-8 PDF 格式)，并伴生生成 `.docx` (原生 Word) 与 `.txt`；
 > - 每页 55 行纯净代码，带两端对齐页眉与矢量分隔线；自动将全项目真实有效行数 (SLOC) 同步回填至申报表卡。
 
-### 步骤 3：生成申请表卡与说明书/设计说明书骨架
+### 步骤 3：生成申请表卡与说明书/设计说明书骨架 (Markdown + 原生 Word .docx 双轨交付)
 1. 依据 `templates/cpcc_form_fields.md` 生成 `docs/copyright/cpcc_application_info.md`，提供完整三页字段与 500—1300 字五大核心板块主要功能；
 2. 依据 `templates/user_manual_template.md` 生成 `docs/copyright/software_user_manual.md`（包含界面全景截图、主要操作截图步骤与文字说明）；
-3. 或依据 `templates/design_specification_template.md` 生成 `docs/copyright/software_design_specification.md`（包含系统总体架构图与各核心模块流程图）。
+3. 或依据 `templates/design_specification_template.md` 生成 `docs/copyright/software_design_specification.md`（包含系统总体架构图与各核心模块流程图）；
+4. **一键导出原生 Word (.docx / doc版) 鉴别材料**：
+   调用本套件内置 Word 导出引擎（纯 Python 标准库，零第三方依赖，内置封面信息卡、截图占位框、两端对齐页眉与动态页码）：
+   ```bash
+   python3 <path-to-skill>/scripts/export_document_docx.py \
+     --all \
+     --dir docs/copyright \
+     --app-name "某某数字化协同管理软件 V1.0" \
+     --version "V1.0"
+   ```
+   产物包含 `docs/copyright/software_user_manual.docx` 与 `docs/copyright/software_design_specification.docx`。
 
 ### 步骤 4：静态门禁前置审查 (Copyright Doctor Pre-flight)
-在材料交付给人类前，强制执行 5 大维度合规预检门禁：
+在材料交付给人类前，强制执行 5 大维度合规预检门禁（支持 .md 与 .docx 双模语法智能审查）：
 
 ```bash
 python3 <path-to-skill>/scripts/audit_copyright_package.py \
@@ -96,7 +106,7 @@ python3 <path-to-skill>/scripts/audit_copyright_package.py \
 - [x] 软件全称法定后缀合规 (`软件/系统/平台/工具/中间件/引擎`) 且版本号大写 `V` 开头；
 - [x] 60 页源程序官方标准 PDF 格式完整性与 TXT 密度（每页有效行数 `>=50` 行，恰好 60 页，0 TODO/FIXME/敏感词）；
 - [x] 申请表三页结构与全字段完备，主要功能严格处于 500—1300 字且完整覆盖五大核心板块；
-- [x] 鉴别材料大纲完备（用户手册截图规范 / 详细设计说明书架构与模块双流程图）；
+- [x] 鉴别材料大纲完备（用户手册截图规范 / 详细设计说明书架构与模块双流程图，支持 .md / .docx / .doc 版）；
 - [x] 全套材料软件全称与版本号 100% 逐字符动态强一致（包括大小写）。
 
 ---
@@ -106,6 +116,7 @@ python3 <path-to-skill>/scripts/audit_copyright_package.py \
 材料生成并通过审计后，向用户提供以下 4 步无纸化申报指引：
 
 1. **源程序 PDF**：系统已直接生成合规的 `source_code_60pages.pdf`，无需任何手工转格式，直接上传即可；
-2. **说明书/设计说明书转 PDF**：在文档骨架中粘贴真实界面截图（确保截图包含正确的软件名称与版本号），使用 Markdown 编辑器或 WPS 导出为 `用户操作说明书.pdf` 或 `详细设计说明书.pdf`；
+2. **说明书/设计说明书编辑与转 PDF**：
+   系统已直接生成规范的原生 Word 排版文档 (`software_user_manual.docx` 或 `software_design_specification.docx`)。直接使用 Word 或 WPS 打开，在预留的截图框中粘贴真实软件运行界面截图（确保截图包含正确的软件名称与版本号），编辑完成后直接「另存为 PDF」；
 3. **资质准备**：准备企业《营业执照副本》彩色扫描件加盖公章（或个人身份证扫描件）；
 4. **CPCC 在线提报**：登录 [中国版权保护中心微平台](https://register.ccopyright.com.cn/)，对照 `cpcc_application_info.md` 逐项复制填入，上传源码 PDF 与说明书 PDF 并提交签章。

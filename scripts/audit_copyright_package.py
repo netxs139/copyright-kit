@@ -289,90 +289,135 @@ def audit_application_form(target_dir: Path) -> tuple[list[str], dict[str, str]]
     return errors, metadata
 
 
+def extract_text_from_doc(file_path: Path) -> str:
+    """从 Markdown (.md) 或 Word (.docx) 中安全提取纯文本内容。"""
+    if file_path.suffix.lower() in (".docx", ".doc"):
+        import zipfile
+        from xml.sax.saxutils import unescape
+
+        try:
+            with zipfile.ZipFile(file_path, "r") as z:
+                xml_parts: list[str] = []
+                for part in ["word/document.xml", "word/header1.xml", "word/footer1.xml"]:
+                    if part in z.namelist():
+                        xml_parts.append(z.read(part).decode("utf-8"))
+                combined_xml = " ".join(xml_parts)
+                texts = re.findall(r"<w:t[^>]*>(.*?)</w:t>", combined_xml)
+                return " ".join(unescape(t) for t in texts)
+        except Exception as e:
+            raise RuntimeError(f"解析 Word 文档失败: {e}") from e
+    return file_path.read_text(encoding="utf-8")
+
+
 def audit_manual_document(target_dir: Path) -> tuple[list[str], dict[str, str]]:
-    """审计《用户操作说明书》章节完备性、截图占位与标题版本号。"""
+    """审计《用户操作说明书》(支持 .md 与 .docx 版) 章节完备性、截图占位与标题版本号。"""
     errors: list[str] = []
     metadata: dict[str, str] = {}
 
-    manual_file = target_dir / "software_user_manual.md"
-    if not manual_file.exists():
+    manual_files = []
+    for ext in [".md", ".docx", ".doc"]:
+        p = target_dir / f"software_user_manual{ext}"
+        if p.exists():
+            manual_files.append(p)
+
+    if not manual_files:
         return errors, metadata
 
-    try:
-        content = manual_file.read_text(encoding="utf-8")
-    except Exception as e:
-        errors.append(f"读取用户手册失败: {e}")
-        return errors, metadata
+    for manual_file in manual_files:
+        try:
+            content = extract_text_from_doc(manual_file)
+        except Exception as e:
+            errors.append(f"读取用户手册 ({manual_file.name}) 失败: {e}")
+            continue
 
-    # 提取封面名称与版本号
-    name_m = re.search(r">\s*\*\*软件全称\*\*\s*：\s*([^\n\r]+)", content)
-    ver_m = re.search(r">\s*\*\*版本号\*\*\s*：\s*([^\n\r]+)", content)
-    if name_m:
-        metadata["manual_app_name"] = name_m.group(1).strip()
-    if ver_m:
-        metadata["manual_version"] = ver_m.group(1).strip()
+        # 提取封面名称与版本号 (兼容 md 与 docx)
+        name_m = re.search(r"软件全称[*\s]*[:：]\s*([^\s<>&]+(?: [^\s<>&]+)?)", content)
+        ver_m = re.search(r"版本号[*\s]*[:：]\s*([^\s<>&]+)", content)
+        if name_m and "manual_app_name" not in metadata:
+            metadata["manual_app_name"] = name_m.group(1).strip("> *")
+        if ver_m and "manual_version" not in metadata:
+            metadata["manual_version"] = ver_m.group(1).strip("> *")
 
-    # 检查核心章节
-    required_chapters = [
-        ("系统概述", r"系统概述"),
-        ("技术架构", r"技术架构|系统架构"),
-        ("业务流程", r"业务流程|流转逻辑"),
-        ("功能模块详细操作", r"核心功能|操作指南|详细操作"),
-        ("数据统计/报表", r"数据统计|分析报表"),
-        ("系统安全/注销", r"安全管理|注销|退出"),
-    ]
-    for ch_name, ch_pat in required_chapters:
-        if not re.search(ch_pat, content):
-            errors.append(f"《用户操作说明书》缺失核心必要章节: 【{ch_name}】")
+        # 检查核心章节
+        required_chapters = [
+            ("系统概述", r"系统概述"),
+            ("技术架构", r"技术架构|系统架构"),
+            ("业务流程", r"业务流程|流转逻辑"),
+            ("功能模块详细操作", r"核心功能|操作指南|详细操作"),
+            ("数据统计/报表", r"数据统计|分析报表"),
+            ("系统安全/注销", r"安全管理|注销|退出"),
+        ]
+        for ch_name, ch_pat in required_chapters:
+            if not re.search(ch_pat, content):
+                errors.append(f"《用户操作说明书》({manual_file.name}) 缺失核心必要章节: 【{ch_name}】")
 
-    # 检查截图规范提示或截图标记
-    if "截图" not in content and "![" not in content:
-        errors.append("《用户操作说明书》未检测到任何界面全景或主要操作截图占位符")
+        # 检查截图规范提示或截图标记
+        if "截图" not in content and "![" not in content and "📸" not in content:
+            errors.append(f"《用户操作说明书》({manual_file.name}) 未检测到任何界面全景或主要操作截图占位符")
 
     return errors, metadata
 
 
 def audit_design_document(target_dir: Path) -> tuple[list[str], dict[str, str]]:
-    """审计《详细设计说明书》章节、流程图与标题版本号。"""
+    """审计《详细设计说明书》(支持 .md 与 .docx 版) 章节、流程图与标题版本号。"""
     errors: list[str] = []
     metadata: dict[str, str] = {}
 
-    design_file = target_dir / "software_design_specification.md"
-    if not design_file.exists():
+    design_files = []
+    for ext in [".md", ".docx", ".doc"]:
+        p = target_dir / f"software_design_specification{ext}"
+        if p.exists():
+            design_files.append(p)
+
+    if not design_files:
         return errors, metadata
 
-    try:
-        content = design_file.read_text(encoding="utf-8")
-    except Exception as e:
-        errors.append(f"读取详细设计说明书失败: {e}")
-        return errors, metadata
+    for design_file in design_files:
+        try:
+            content = extract_text_from_doc(design_file)
+        except Exception as e:
+            errors.append(f"读取详细设计说明书 ({design_file.name}) 失败: {e}")
+            continue
 
-    # 提取封面名称与版本号
-    name_m = re.search(r">\s*\*\*软件全称\*\*\s*：\s*([^\n\r]+)", content)
-    ver_m = re.search(r">\s*\*\*版本号\*\*\s*：\s*([^\n\r]+)", content)
-    if name_m:
-        metadata["design_app_name"] = name_m.group(1).strip()
-    if ver_m:
-        metadata["design_version"] = ver_m.group(1).strip()
+        # 提取封面名称与版本号 (兼容 md 与 docx)
+        name_m = re.search(r"软件全称[*\s]*[:：]\s*([^\s<>&]+(?: [^\s<>&]+)?)", content)
+        ver_m = re.search(r"版本号[*\s]*[:：]\s*([^\s<>&]+)", content)
+        if name_m and "design_app_name" not in metadata:
+            metadata["design_app_name"] = name_m.group(1).strip("> *")
+        if ver_m and "design_version" not in metadata:
+            metadata["design_version"] = ver_m.group(1).strip("> *")
 
-    # 检查核心章节
-    required_chapters = [
-        ("系统概述", r"系统概述"),
-        ("总体技术架构", r"总体技术架构|技术架构设计"),
-        ("业务流程设计", r"核心业务流程设计|业务流转总流程"),
-        ("功能模块详细设计", r"功能模块详细设计|模块设计"),
-        ("数据模型/接口规范", r"接口契约|数据模型"),
-    ]
-    for ch_name, ch_pat in required_chapters:
-        if not re.search(ch_pat, content):
-            errors.append(f"《详细设计说明书》缺失核心必要章节: 【{ch_name}】")
+        # 检查核心章节
+        required_chapters = [
+            ("系统概述", r"系统概述"),
+            ("总体技术架构", r"总体技术架构|技术架构设计"),
+            ("业务流程设计", r"核心业务流程设计|业务流转总流程"),
+            ("功能模块详细设计", r"功能模块详细设计|模块设计"),
+            ("数据模型/接口规范", r"接口契约|数据模型"),
+        ]
+        for ch_name, ch_pat in required_chapters:
+            if not re.search(ch_pat, content):
+                errors.append(f"《详细设计说明书》({design_file.name}) 缺失核心必要章节: 【{ch_name}】")
 
-    # 检查全局流程图与模块流程图 (支持 Mermaid 语法)
-    flowcharts = re.findall(r"```mermaid\n(.*?)\n```", content, re.DOTALL)
-    if len(flowcharts) < 2:
-        errors.append(
-            f"《详细设计说明书》流程图数量不足: 仅发现 {len(flowcharts)} 张 (必须包含系统整体主流程图及各核心模块流程图)"
-        )
+        # 检查全局流程图与模块流程图 (docx 与 md 双模语法支持)
+        if design_file.suffix.lower() in (".docx", ".doc"):
+            flowcharts_count = len(
+                re.findall(
+                    r"(?:架构流程图|业务时序定义|flowchart|sequenceDiagram|graph\s+[TLRDB]{2})",
+                    content,
+                    re.IGNORECASE,
+                )
+            )
+            if flowcharts_count < 2 and "流程图" not in content:
+                errors.append(
+                    f"《详细设计说明书》({design_file.name}) 流程图数量不足 (必须包含系统整体主流程图及各核心模块流程图)"
+                )
+        else:
+            flowcharts = re.findall(r"```mermaid\n(.*?)\n```", content, re.DOTALL)
+            if len(flowcharts) < 2:
+                errors.append(
+                    f"《详细设计说明书》({design_file.name}) 流程图数量不足: 仅发现 {len(flowcharts)} 张 (必须包含系统整体主流程图及各核心模块流程图)"
+                )
 
     return errors, metadata
 
@@ -491,17 +536,32 @@ def main():
     all_errors.extend(design_errs)
     collected_meta.update(design_meta)
 
-    has_manual = (target_dir / "software_user_manual.md").exists()
-    has_design = (target_dir / "software_design_specification.md").exists()
+    has_manual_md = (target_dir / "software_user_manual.md").exists()
+    has_manual_doc = (target_dir / "software_user_manual.docx").exists() or (target_dir / "software_user_manual.doc").exists()
+    has_design_md = (target_dir / "software_design_specification.md").exists()
+    has_design_doc = (target_dir / "software_design_specification.docx").exists() or (target_dir / "software_design_specification.doc").exists()
+
+    has_manual = has_manual_md or has_manual_doc
+    has_design = has_design_md or has_design_doc
 
     if not has_manual and not has_design:
-        all_errors.append("缺失核心鉴别材料：必须在当前目录下提供《用户操作说明书》或《详细设计说明书》至少一种")
+        all_errors.append("缺失核心鉴别材料：必须在当前目录下提供《用户操作说明书》或《详细设计说明书》至少一种 (.md 或 .docx)")
     else:
         doc_names = []
         if has_manual:
-            doc_names.append("用户操作手册")
+            formats = []
+            if has_manual_md:
+                formats.append("md")
+            if has_manual_doc:
+                formats.append("docx")
+            doc_names.append(f"用户操作手册 ({'+'.join(formats)})")
         if has_design:
-            doc_names.append("详细设计说明书")
+            formats = []
+            if has_design_md:
+                formats.append("md")
+            if has_design_doc:
+                formats.append("docx")
+            doc_names.append(f"详细设计说明书 ({'+'.join(formats)})")
         if not manual_errs and not design_errs:
             print(f"✅ [4/5] 鉴别材料大纲、截图规范与架构流程图完整就绪 ({' + '.join(doc_names)})！")
         else:

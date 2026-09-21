@@ -53,6 +53,7 @@ def test_forbidden_file_paths():
 
     good_paths = [
         "scripts/export_copyright_source.py",
+        "scripts/export_document_docx.py",
         "README.md",
         "pyproject.toml",
         "templates/user_manual_template.md",

@@ -569,6 +569,7 @@ def main():
     parser.add_argument("--pages", type=int, default=60, help="总页数 (默认: 60)")
     parser.add_argument("--exts", help="允许的文件扩展名（逗号分隔，如 .py,.ts,.vue）")
     parser.add_argument("--exclude", help="额外排除的目录名称（逗号分隔）")
+    parser.add_argument("--with-docs", "--export-docs", action="store_true", help="同步导出/更新鉴别材料 (用户手册与设计说明书) 的 Word .docx 排版版本")
 
     args = parser.parse_args()
 
@@ -657,6 +658,24 @@ def main():
         card_path = output_path.parent / card_name
         if update_application_card_sloc(card_path, len(lines)):
             print(f"📊 已将真实源程序量 ({len(lines):,} 行) 自动同步至申报填报卡: {card_path}")
+
+    # 4. 同步导出鉴别材料 Word (.docx) 文档 (用户操作说明书 / 详细设计说明书)
+    has_manual_md = (output_path.parent / "software_user_manual.md").exists()
+    has_design_md = (output_path.parent / "software_design_specification.md").exists()
+    if args.with_docs or has_manual_md or has_design_md:
+        try:
+            from scripts.export_document_docx import export_all_docs
+
+            exported_docs = export_all_docs(
+                target_dir=output_path.parent,
+                app_name=base_name,
+                version=final_version,
+            )
+            for doc_file in exported_docs:
+                print(f"📘 成功导出鉴别材料 Word 排版文档: {doc_file}")
+        except Exception as e:
+            print(f"⚠️ 导出鉴别材料 Word 文档异常: {e}", file=sys.stderr)
+
     print("=" * 68)
 
 

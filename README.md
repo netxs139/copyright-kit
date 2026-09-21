@@ -9,7 +9,7 @@
 [![Dependencies](https://img.shields.io/badge/dependencies-0%20(Standard%20Library)-brightgreen.svg)]()
 [![CPCC Standard](https://img.shields.io/badge/CPCC-100%25%20Compliant-success.svg)]()
 
-> 📖 **快速导航**: [人类贡献指南 (CONTRIBUTING.md)](./CONTRIBUTING.md) | [Skill 智能体集成指南](SKILL.md)
+> 📖 **快速导航**: [贡献指南 (CONTRIBUTING.md)](./CONTRIBUTING.md) | [Skill 智能体集成指南](SKILL.md)
 
 ---
 
@@ -43,8 +43,8 @@ flowchart LR
     E2 --> F2[📄 source_code_60pages.docx<br/>原生 Word 排版]
     D --> F3[📝 source_code_60pages.txt<br/>标准 \\f 硬分页]
     D --> F4[📋 cpcc_form_fields.md<br/>三页全字段卡 + 500-1300字]
-    D --> F5[📖 software_user_manual.md<br/>用户操作手册 + 截图规范]
-    D --> F6[📐 software_design_specification.md<br/>详细设计说明书 + 双流程图]
+    D --> F5[📖 software_user_manual.md / .docx<br/>用户操作手册 (md+Word版)]
+    D --> F6[📐 software_design_specification.md / .docx<br/>详细设计说明书 (md+Word版)]
     F1 & F2 & F3 & F4 & F5 & F6 --> G[🩺 CPCC Pre-flight Doctor<br/>合规门禁 100% 预审]
 ```
 
@@ -62,6 +62,11 @@ flowchart LR
   - 每页实打实 55 行有效代码，完全满足官方“必须是 PDF、不能是 Word、不能有乱码/图片/截图”的严苛要求。
 - 📄 **原生 Word (.docx) 与纯文本 (.txt) 同步伴生交付**：
   - 满足多端审阅与归档需求，支持灵活二次排版。
+- 📘 **说明书与详细设计说明书原生 Word (.docx / doc版) 双轨直出**：
+  - 内置纯标准库 Markdown 到原生 OpenXML 转换引擎，一键直出 A4 专业排版 Word 文档；
+  - 自动渲染封面信息卡、多级标题、引用警示框、Mermaid/代码块、专业数据表格；
+  - 专为 CPCC 审查指标定制「界面全景与操作截图占位框」，用户可在 Word/WPS 中直接粘贴真实界面截图后「另存为 PDF」；
+  - 自动生成两端对齐页眉与动态页码页脚（第 PAGE 页 共 NUMPAGES 页）。
 - 📋 **官方三页标准申请表填报卡与 500—1300 字核心功能模板**：
   - 严格按照官方申请表第一页（申请信息）、第二页（开发信息）、第三页（功能与特点）分层组织；
   - 补全原创、独立开发、开发目的、面向领域、技术特点等全要素；
@@ -110,6 +115,7 @@ copyright-kit/
 ├── pyproject.toml                    # 标准 PEP 621 打包配置与 CLI 入口声明
 ├── scripts/                          # 核心脚本引擎 (纯标准库，零依赖)
 │   ├── export_copyright_source.py   # 60 页源程序提取、PDF/docx/txt 渲染与行数同步引擎
+│   ├── export_document_docx.py      # 说明书与设计说明书原生 Word (.docx) 排版渲染引擎
 │   ├── audit_copyright_package.py   # CPCC 合规门禁 Pre-flight Doctor 扫描器 (5大维度)
 │   └── verify_compliance.py         # 商业与内部敏感信息开源合规审计工具
 ├── templates/                        # 官方申报标准化模板
@@ -118,7 +124,7 @@ copyright-kit/
 │   └── design_specification_template.md # 《详细设计说明书》模板 (含总体架构与模块流程图)
 └── tests/
     ├── test_compliance.py           # 6 项合规测试
-    └── test_copyright_kit.py        # 14 项全要素自动化测试 (PDF/申请表/跨文件强一致性)
+    └── test_copyright_kit.py        # 17 项全要素自动化测试 (PDF/申请表/Word说明书/跨文件一致性)
 ```
 
 ---
@@ -130,6 +136,9 @@ copyright-kit/
 ```bash
 # 一键抽取 60 页 PDF/docx/txt 源码
 uvx --from git+https://github.com/netxs139/copyright-kit.git copyright-kit --app-name "某某管理软件 V1.0"
+
+# 一键导出用户手册与详细设计说明书 Word (.docx) 版
+uvx --from git+https://github.com/netxs139/copyright-kit.git export-doc --all --app-name "某某管理软件 V1.0"
 
 # 门禁合规审计
 uvx --from git+https://github.com/netxs139/copyright-kit.git audit-copyright --dir docs/copyright
@@ -180,9 +189,34 @@ python3 scripts/export_copyright_source.py \
 
 ---
 
-### 步骤 2：运行 CPCC 合规门禁审查 (Pre-flight Doctor)
+### 步骤 2：一键导出鉴别材料 Word (.docx / doc版)
 
-在正式向中国版权保护中心提交前，运行静态门禁扫描器：
+```bash
+python3 scripts/export_document_docx.py \
+  --all \
+  --dir docs/copyright \
+  --app-name "SeedFlow家庭资产数字化记账软件 V1.0" \
+  --version "V1.0"
+```
+
+**控制台实际输出示例**：
+```text
+====================================================================
+📄 正在生成软件著作权鉴别材料 Word (.docx) 版...
+   软件全称: SeedFlow家庭资产数字化记账软件 V1.0 | 版本号: V1.0
+✅ 成功一键导出 2 个 Word 排版说明书文档:
+   - docs/copyright/software_user_manual.docx
+   - docs/copyright/software_design_specification.docx
+====================================================================
+```
+
+> **提示**：生成的 Word 文档内置标准封面信息卡、章节编号样式、截图指示虚线框与两端对齐页眉。用户可在 Word/WPS 中直接粘贴截图，完成后直接「另存为 PDF」即可向 CPCC 提报。
+
+---
+
+### 步骤 3：运行 CPCC 合规门禁审查 (Pre-flight Doctor)
+
+在正式向中国版权保护中心提交前，运行静态门禁扫描器（支持 .md 与 .docx 双模智能审查）：
 
 ```bash
 python3 scripts/audit_copyright_package.py \
@@ -200,7 +234,7 @@ python3 scripts/audit_copyright_package.py \
 ✅ [1/5] 软件全称与版本法定命名合规: 'SeedFlow家庭资产数字化记账软件 V1.0'
 ✅ [2/5] 60 页源程序文档 (PDF/TXT) 密度、页码与敏感词零容忍 100% 达标！
 ✅ [3/5] CPCC 申请表三页全字段规范与主要功能 500—1300 字五大模块 100% 就绪！
-✅ [4/5] 鉴别材料大纲、截图规范与架构流程图完整就绪 (用户操作手册 + 详细设计说明书)！
+✅ [4/5] 鉴别材料大纲、截图规范与架构流程图完整就绪 (用户操作手册 (md+docx) + 详细设计说明书 (md+docx))！
 ✅ [5/5] 申请表、源程序页眉与说明书命名及版本号 100% 逐字符强一致！
 ====================================================================
 🎉 恭喜！软著全套申报材料 100% 通过合规门禁，完全符合中国版权保护中心官方审查规范！

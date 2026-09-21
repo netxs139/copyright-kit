@@ -25,6 +25,12 @@ from scripts.export_copyright_source import (
     paginate_source_code,
     update_application_card_sloc,
 )
+from scripts.export_document_docx import (
+    export_all_docs,
+    export_design_doc,
+    export_manual_doc,
+    markdown_to_docx,
+)
 
 
 
@@ -320,6 +326,120 @@ def test_audit_cross_materials_alignment_strict():
     }
     errs_aligned = audit_cross_materials_alignment(aligned_meta)
     assert errs_aligned == []
+
+
+def test_markdown_to_docx_rich_elements(tmp_path: Path):
+    """Given 包含多级标题、表格、代码块、引用框与截图标记的 Markdown When 转换为 docx Then 生成合规 OpenXML 部件."""
+    import zipfile
+
+    md_sample = """# 测试系统 用户操作说明书
+
+> **软件全称**：测试数字化管理系统 V1.0  
+> **版本号**：V1.0  
+
+## 第一章 系统概述
+这是一个核心概述段落，包含 **粗体字**、*斜体字*、`console.log('hi')` 与 [官方链接](https://example.com)。
+
+> ⚠️ **CPCC 审查硬指标**：必须上传真实界面截图！
+
+| 模块名称 | 状态 | 职责 |
+| :--- | :--- | :--- |
+| 认证中心 | 正常 | 负责鉴权 |
+| 数据网关 | 正常 | 路由分发 |
+
+*（【必须插入】软件主界面全景高清截图：测试数字化管理系统 V1.0）*
+
+```mermaid
+graph TD
+    A[客户端] --> B[网关]
+```
+
+- 列表项 1
+- 列表项 2
+"""
+    output_docx = tmp_path / "rich_sample.docx"
+    markdown_to_docx(md_sample, output_docx, doc_title="测试数字化管理系统 V1.0")
+
+    assert output_docx.exists()
+    assert output_docx.stat().st_size > 1000
+
+    with zipfile.ZipFile(output_docx, "r") as z:
+        names = z.namelist()
+        assert "[Content_Types].xml" in names
+        assert "word/document.xml" in names
+        assert "word/header1.xml" in names
+        assert "word/footer1.xml" in names
+
+        doc_xml = z.read("word/document.xml").decode("utf-8")
+        assert "测试系统 用户操作说明书" in doc_xml
+        assert "<w:tbl>" in doc_xml
+        assert "认证中心" in doc_xml
+        assert "📸【系统界面全景 / 功能操作真实截图粘贴区】" in doc_xml
+
+        hdr_xml = z.read("word/header1.xml").decode("utf-8")
+        assert "测试数字化管理系统 V1.0" in hdr_xml
+        assert "CPCC" in hdr_xml
+
+        ftr_xml = z.read("word/footer1.xml").decode("utf-8")
+        assert "fldSimple" in ftr_xml
+
+
+def test_export_manual_and_design_docx_from_templates(tmp_path: Path):
+    """Given 用户手册与详细设计说明书模板 When 导出为 docx Then 生成合法的 Word 文档且通过审计门禁."""
+    template_dir = get_template_path()
+    manual_tpl = template_dir / "user_manual_template.md"
+    design_tpl = template_dir / "design_specification_template.md"
+
+    out_manual_docx = tmp_path / "software_user_manual.docx"
+    out_design_docx = tmp_path / "software_design_specification.docx"
+
+    export_manual_doc(
+        manual_tpl,
+        out_manual_docx,
+        app_name="智能协同管理软件",
+        version="V1.0",
+        company_name="开源创新科技",
+    )
+    export_design_doc(
+        design_tpl,
+        out_design_docx,
+        app_name="智能协同管理软件",
+        version="V1.0",
+        company_name="开源创新科技",
+    )
+
+    assert out_manual_docx.exists()
+    assert out_design_docx.exists()
+
+    # 门禁审计纯 docx 目录
+    m_errs, m_meta = audit_manual_document(tmp_path)
+    assert m_errs == [], f"Manual docx should pass audit: {m_errs}"
+    assert m_meta["manual_version"] == "V1.0"
+    assert "智能协同管理软件" in m_meta["manual_app_name"]
+
+    d_errs, d_meta = audit_design_document(tmp_path)
+    assert d_errs == [], f"Design docx should pass audit: {d_errs}"
+    assert d_meta["design_version"] == "V1.0"
+    assert "智能协同管理软件" in d_meta["design_app_name"]
+
+
+def test_export_all_docs_helper(tmp_path: Path):
+    """Given 目标目录 When 调用 export_all_docs Then 一键生成双份 Word (.docx) 鉴别材料."""
+    docs = export_all_docs(
+        tmp_path,
+        app_name="资产分析管理系统",
+        version="V2.0",
+        company_name="云端智联科技",
+    )
+    assert len(docs) == 2
+    assert (tmp_path / "software_user_manual.docx").exists()
+    assert (tmp_path / "software_design_specification.docx").exists()
+
+    # 验证双文档跨文件强一致性比对
+    _, m_meta = audit_manual_document(tmp_path)
+    _, d_meta = audit_design_document(tmp_path)
+    combined = {**m_meta, **d_meta, "form_version": "V2.0", "source_version": "V2.0"}
+    assert audit_cross_materials_alignment(combined) == []
 
 
 
