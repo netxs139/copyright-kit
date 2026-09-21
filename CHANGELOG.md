@@ -51,3 +51,9 @@ All notable changes to the `copyright-kit` project will be documented in this fi
 - **前台全景驾驶舱**: 升级 `README.md` 与 `CONTRIBUTING.md` 为极简导航驾驶舱，透出标准使用流程；
 - **PyPI & CLI 契约**: 提供 `copyright-kit` 与 `audit-copyright` 命令行脚本入口；配套 Hatchling 构建标准；
 - **自动化测试**: 交付 8 项端到端单元测试，覆盖 OpenXML 打包、脱敏过滤与 60 页截断校验（100% PASS）；
+
+### [2026-09-21] 业务演进与系统能力公报 (Release Workflow)
+
+- **[已完成] 综合能力演进与加固**:
+  - [已完成] copyright-kit 说明书与详细设计说明书支持原生 Word (.docx版) 导出与 CPCC 官方规范对齐
+  - [已完成] 完成全量一键闭环重构升级 (对齐 CPCC 申请表三页规范、原生 UTF-8 源码 PDF 直出、详细设计说明书流程图架构、跨材料全称与版本号 100% 逐字符动态交叉强校验)
