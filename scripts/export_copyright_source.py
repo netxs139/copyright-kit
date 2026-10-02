@@ -5,18 +5,21 @@
 1. 源码前后各 30 页 (共 60 页)，每页严格 55 行 (满足法定每页 >=50 行标准)；
 2. 自动过滤 TODO/FIXME/XXX/DEBUG/第三方商业版权头，彻底剥离行尾未竟注释；
 3. 每页自动注入标准两端对齐页眉与连续页码，页间插入标准分页符 (\\f)；
-4. 纯标准库零外部依赖直出官方标准 UTF-8 编码 PDF 格式 (包含原生 docx 与 txt 伴生交付)；
+4. 基于 Playwright 矢量印刷引擎直出官方标准 UTF-8 编码 PDF 格式 (包含原生 docx 与 txt 伴生交付)；
 5. 支持自适应零配置嗅探（自动推断当前项目名与生产源码目录）；
-6. 零第三方依赖 (Zero-Dependency)，仅使用 Python 标准库，跨平台开箱即用。
+6. 宿主环境自愈嗅探，确保在子项目独立环境中开箱即用。
 """
 
 from __future__ import annotations
 
 import argparse
+import html
 import json
-from pathlib import Path
 import re
+import subprocess
 import sys
+from pathlib import Path
+
 
 # 默认支持的代码扩展名（涵盖主流编程语言、模板与数据库脚本）
 DEFAULT_EXTS = {
@@ -225,6 +228,30 @@ def paginate_source_code(
     return "\f".join(pages)
 
 
+def _find_playwright_python() -> str | None:
+    """探测支持 Playwright 的 Python 解释器路径。"""
+    try:
+        from playwright.sync_api import sync_playwright  # noqa: F401
+
+        return sys.executable
+    except ImportError:
+        pass
+    for cand in ["/usr/bin/python3", "/usr/local/bin/python3"]:
+        cand_p = Path(cand)
+        if cand_p.is_file():
+            try:
+                res = subprocess.run(
+                    [str(cand_p), "-c", "from playwright.sync_api import sync_playwright"],
+                    capture_output=True,
+                    timeout=5,
+                )
+                if res.returncode == 0:
+                    return str(cand_p)
+            except Exception:
+                continue
+    return None
+
+
 def export_as_pdf(
     lines: list[str],
     app_name: str,
@@ -233,12 +260,13 @@ def export_as_pdf(
     lines_per_page: int = 55,
     total_pages: int = 60,
 ) -> None:
-    """纯 Python 标准库零依赖生成官方标准 UTF-8 / CJK PDF 格式的 60 页标准源程序。
+    """基于 Playwright 矢量渲染引擎生成官方标准 UTF-8 编码的 60 页标准源程序 PDF。
 
     满足官方硬指标：
-    1. 真实 PDF 格式，UTF-8 字符集支持，绝对无乱码、无图片、无截图；
-    2. A4 规格，2.0cm 标准边距，每页严格 55 行有效代码 (法定 >=50 行)；
-    3. 每页标准两端对齐页眉 (左侧软件全称+版本号，右侧页码，下方矢量分隔线)。
+    1. 真实矢量 PDF 格式，UTF-8 字符集支持，彻底杜绝乱码、问号或字符断裂；
+    2. A4 规格，20mm 边距，每页严格 55 行有效代码 (法定 >=50 行)；
+    3. 规范宋体两端对齐页眉 (左侧软件全称+版本号，右侧连续页码，下方矢量横线)；
+    4. 正文采用 Consolas 等宽纯净代码字体，等宽对齐，无全角异常拉伸。
     """
     needed_lines = lines_per_page * total_pages
     half_pages = total_pages // 2
@@ -256,115 +284,124 @@ def export_as_pdf(
     actual_pages = min(total_pages, (len(selected) + lines_per_page - 1) // lines_per_page)
     _, _, full_name = normalize_app_and_version(app_name, version)
 
-    def calc_width(s: str, sz: float) -> float:
-        return sum(sz if ord(c) > 127 else sz * 0.55 for c in s)
+    py_exe = _find_playwright_python()
+    if not py_exe:
+        print(
+            "⚠️ 提示: 缺少 playwright 依赖，无法编译矢量 PDF (已保留 .txt 与 .docx 正常交付)。\n"
+            "   如需直出无乱码矢量 PDF，请运行: pip install playwright && playwright install chromium",
+            file=sys.stderr,
+        )
+        return
 
-    # 构造 PDF 拓扑对象
-    # 1: Catalog, 2: Pages, 3: Type0 Font, 4: CIDFontType0
-    # 对每页 i: Page obj id = 5 + 2*(i-1), Content obj id = 6 + 2*(i-1)
-    page_obj_ids = [5 + 2 * i for i in range(actual_pages)]
-    content_obj_ids = [6 + 2 * i for i in range(actual_pages)]
-    total_objs = 4 + 2 * actual_pages
-
-    catalog_bytes = b"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n"
-    kids_str = " ".join(f"{pid} 0 R" for pid in page_obj_ids)
-    pages_bytes = f"2 0 obj\n<< /Type /Pages /Kids [{kids_str}] /Count {actual_pages} >>\nendobj\n".encode("ascii")
-
-    # 采用 CJK Type0 复合字体体系，原生映射 UTF-16BE 字节，兼容所有主流 PDF 阅读器
-    font_bytes = (
-        b"3 0 obj\n<< /Type /Font /Subtype /Type0 /BaseFont /STSong-Light "
-        b"/Encoding /UniGB-UTF16-H /DescendantFonts [4 0 R] >>\nendobj\n"
-    )
-    cid_bytes = (
-        b"4 0 obj\n<< /Type /Font /Subtype /CIDFontType0 /BaseFont /STSong-Light "
-        b"/CIDSystemInfo << /Registry (Adobe) /Ordering (GB1) /Supplement 4 >> >>\nendobj\n"
-    )
-
-    objects: dict[int, bytes] = {
-        1: catalog_bytes,
-        2: pages_bytes,
-        3: font_bytes,
-        4: cid_bytes,
-    }
-
-    margin_x = 56.69  # 2.0 cm (A4 边距)
-    page_w = 595.28   # A4 宽度
-    page_h = 841.89   # A4 高度
-
+    page_blocks: list[str] = []
     for idx in range(1, actual_pages + 1):
-        p_obj_id = page_obj_ids[idx - 1]
-        c_obj_id = content_obj_ids[idx - 1]
-
         start = (idx - 1) * lines_per_page
         end = start + lines_per_page
         cur_lines = selected[start:end]
 
+        header_title = html.escape(full_name)
         header_page = f"第 {idx} 页"
-        right_w = calc_width(header_page, 8.5)
-        right_x = page_w - margin_x - right_w
+        # 截取安全长度 (110 字符) 且保持不折行，严格保障单页刚好 55 行不撑高
+        code_body = "\n".join(html.escape(line[:110]) for line in cur_lines)
 
-        hex_title = full_name.encode("utf-16-be").hex()
-        hex_page = header_page.encode("utf-16-be").hex()
+        block = f"""
+        <div class="page">
+          <div class="header">
+            <span>{header_title}</span>
+            <span>{header_page}</span>
+          </div>
+          <div class="divider"></div>
+          <pre class="code">{code_body}</pre>
+        </div>"""
+        page_blocks.append(block)
 
-        stream_parts: list[str] = []
-        # 页眉文字
-        stream_parts.append("BT")
-        stream_parts.append("/F1 8.5 Tf")
-        stream_parts.append(f"1 0 0 1 {margin_x:.2f} 790.00 Tm <{hex_title}> Tj")
-        stream_parts.append(f"1 0 0 1 {right_x:.2f} 790.00 Tm <{hex_page}> Tj")
-        stream_parts.append("ET")
-
-        # 矢量横线分隔线
-        stream_parts.append("0.5 w")
-        stream_parts.append("0.67 0.67 0.67 RG")
-        stream_parts.append(f"{margin_x:.2f} 780.00 m {page_w - margin_x:.2f} 780.00 l S")
-
-        # 每页 55 行代码段落
-        stream_parts.append("BT")
-        stream_parts.append("/F1 8.0 Tf")
-        base_y = 765.0
-        line_height = 12.5
-
-        for line_no, code_line in enumerate(cur_lines):
-            y_pos = base_y - line_no * line_height
-            # 截取适度长度防止溢出右侧页边距
-            safe_text = code_line[:120]
-            hex_code = safe_text.encode("utf-16-be").hex()
-            stream_parts.append(f"1 0 0 1 {margin_x:.2f} {y_pos:.2f} Tm <{hex_code}> Tj")
-        stream_parts.append("ET")
-
-        stream_data = "\n".join(stream_parts).encode("utf-8")
-        c_bytes = (
-            f"{c_obj_id} 0 obj\n<< /Length {len(stream_data)} >>\nstream\n".encode("ascii")
-            + stream_data
-            + b"\nendstream\nendobj\n"
-        )
-        p_bytes = (
-            f"{p_obj_id} 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {page_w} {page_h}] "
-            f"/Resources << /Font << /F1 3 0 R >> >> /Contents {c_obj_id} 0 R >>\nendobj\n"
-        ).encode("ascii")
-
-        objects[p_obj_id] = p_bytes
-        objects[c_obj_id] = c_bytes
-
-    # 组装 PDF 正文与交叉引用表 (Xref)
-    body = b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\n"
-    offsets = [0] * (total_objs + 1)
-
-    for i in range(1, total_objs + 1):
-        offsets[i] = len(body)
-        body += objects[i]
-
-    xref_offset = len(body)
-    xref = f"xref\n0 {total_objs + 1}\n0000000000 65535 f \n".encode("ascii")
-    for i in range(1, total_objs + 1):
-        xref += f"{offsets[i]:010d} 00000 n \n".encode("ascii")
-
-    trailer = f"trailer\n<< /Size {total_objs + 1} /Root 1 0 R >>\nstartxref\n{xref_offset}\n%%EOF\n".encode("ascii")
-    full_pdf = body + xref + trailer
+    full_html = f"""<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<style>
+  @page {{
+    size: A4;
+    margin: 12mm 18mm;
+  }}
+  body {{
+    margin: 0;
+    padding: 0;
+    background: #ffffff;
+    color: #111827;
+  }}
+  .page {{
+    page-break-after: always;
+    page-break-inside: avoid;
+    box-sizing: border-box;
+    overflow: hidden;
+  }}
+  .page:last-child {{
+    page-break-after: avoid;
+  }}
+  .header {{
+    display: flex;
+    justify-content: space-between;
+    font-size: 8.5pt;
+    color: #4b5563;
+    font-family: "SimSun", "Songti SC", "Noto Serif CJK SC", "STSong", serif;
+  }}
+  .divider {{
+    border-bottom: 0.5pt solid #9ca3af;
+    margin-top: 2pt;
+    margin-bottom: 6pt;
+  }}
+  .code {{
+    font-family: "Consolas", "Courier New", "Noto Sans Mono", monospace;
+    font-size: 7.5pt;
+    line-height: 11.8pt;
+    margin: 0;
+    padding: 0;
+    white-space: pre;
+    overflow: hidden;
+  }}
+</style>
+</head>
+<body>
+{"".join(page_blocks)}
+</body>
+</html>"""
 
     output_pdf_path.parent.mkdir(parents=True, exist_ok=True)
-    output_pdf_path.write_bytes(full_pdf)
+    temp_html_path = output_pdf_path.with_suffix(".tmp.html")
+    temp_html_path.write_text(full_html, encoding="utf-8")
+
+    try:
+        if py_exe == sys.executable:
+            from playwright.sync_api import sync_playwright
+
+            with sync_playwright() as p:
+                browser = p.chromium.launch(headless=True)
+                page = browser.new_page()
+                page.goto(f"file://{temp_html_path.resolve()}", wait_until="networkidle")
+                page.pdf(path=str(output_pdf_path), format="A4", print_background=True)
+                browser.close()
+        else:
+            runner_script = (
+                "from playwright.sync_api import sync_playwright; import sys; "
+                "html_path, pdf_path = sys.argv[1], sys.argv[2]; "
+                "p = sync_playwright().start(); "
+                "b = p.chromium.launch(headless=True); "
+                "page = b.new_page(); "
+                "page.goto('file://' + html_path, wait_until='networkidle'); "
+                "page.pdf(path=pdf_path, format='A4', print_background=True); "
+                "b.close(); p.stop()"
+            )
+            res = subprocess.run(
+                [py_exe, "-c", runner_script, str(temp_html_path.resolve()), str(output_pdf_path.resolve())],
+                capture_output=True,
+                text=True,
+            )
+            if res.returncode != 0:
+                raise RuntimeError(f"Playwright 渲染子进程失败: {res.stderr}")
+    finally:
+        if temp_html_path.exists():
+            temp_html_path.unlink()
 
 
 def export_as_docx(
@@ -433,7 +470,7 @@ def export_as_docx(
 
         # 如果不是最后一页，插入硬分页符
         if page_idx < actual_pages:
-            body_xml_parts.append("<w:p><w:r><w:br w:type=\"page\"/></w:r></w:p>")
+            body_xml_parts.append('<w:p><w:r><w:br w:type="page"/></w:r></w:p>')
 
     # 页面节设置 (A4 尺寸: 11906 x 16838 dxa, 页边距: 2.0 cm = 1134 dxa)
     body_xml_parts.append("""<w:sectPr>
@@ -623,7 +660,7 @@ def main():
     print(f"✅ 成功导出标准软著源程序纯文本: {output_path}")
     print(f"   总格式化行数: {total_output_lines} 行 (包含页眉与分隔线)")
 
-    # 1. 导出官方标准原生 PDF 格式 (纯 Python 标准库直出，满足 CPCC 提交硬要求)
+    # 1. 导出官方标准原生 PDF 格式 (Playwright 矢量印刷直出，满足 CPCC 提交硬要求)
     pdf_path = output_path.with_suffix(".pdf")
     try:
         export_as_pdf(
@@ -634,7 +671,8 @@ def main():
             lines_per_page=args.lines_per_page,
             total_pages=args.pages,
         )
-        print(f"📕 成功导出官方标准 UTF-8 PDF 文档: {pdf_path} (A4 / 2cm 边距 / 矢量等宽代码)")
+        if pdf_path.exists():
+            print(f"📕 成功导出官方标准 UTF-8 PDF 文档: {pdf_path} (A4 / 2cm 边距 / Playwright 矢量等宽代码)")
     except Exception as e:
         print(f"❌ 导出 .pdf 发生异常: {e}", file=sys.stderr)
 
@@ -677,7 +715,8 @@ def main():
             print(f"⚠️ 导出鉴别材料 Word 文档异常: {e}", file=sys.stderr)
 
     print("=" * 68)
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

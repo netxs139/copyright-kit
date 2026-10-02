@@ -1,13 +1,13 @@
 ---
 name: copyright-kit
-description: "通用计算机软件著作权 (CPCC) 申报套件与合规门禁专家。当用户要求【申请软著】、【软著材料】、【导出软著代码】、【软著说明书】、【CPCC申报】、【准备软著】、【软件著作权】或输入 /copyright-kit 时强制激活。负责 60 页源程序全自动脱敏清洗、纯标准库原生 UTF-8 PDF 直出、三页申请表规范、7 章节用户说明书与详细设计说明书生成及 CPCC 官方门禁前置审计。"
+description: "通用计算机软件著作权 (CPCC) 申报套件与合规门禁专家。当用户要求【申请软著】、【软著材料】、【导出软著代码】、【软著说明书】、【CPCC申报】、【准备软著】、【软件著作权】或输入 /copyright-kit 时强制激活。负责 60 页源程序全自动脱敏清洗、Playwright 矢量等宽 0 乱码 PDF 直出、三页申请表规范、7 章节用户说明书与详细设计说明书生成及 CPCC 官方门禁前置审计。"
 ---
 
 # Workflow: /copyright-kit (软件著作权申报全自动化工作流)
 
-> **适用场景**：为任何自研微服务、Web 平台或移动端 App 向中国版权保护中心（CPCC）申报《计算机软件著作权登记证书》。  
-> **核心目标**：实现 60 秒内全自动完成代码脱敏清洗、纯标准库原生 UTF-8 编码 60 页（前 30 + 后 30）PDF 排版直出、三页申请表全字段（含 500—1300 字五大核心模块）与说明书/设计说明书图文骨架生成，以及 CPCC 官方全套材料逐字符动态强一致性预审门禁 100% 达标。  
-> **开源与自包含声明**：本 Skill 为 100% 自包含独立包，脚本零第三方依赖（纯 Python 标准库），支持全平台离线运行。
+> **适用场景**：为任何自研微服务、Web 平台或移动端 App 向中国版权保护中心（CPCC）申报《计算机软件著作权登记证书》。
+> **核心目标**：实现 60 秒内全自动完成代码脱敏清洗、Playwright 矢量印刷官方标准 60 页（前 30 + 后 30）等宽 PDF 直出（100% 杜绝乱码与字符断裂）、三页申请表全字段（含 500—1300 字五大核心模块）与说明书/设计说明书图文骨架生成，以及 CPCC 官方全套材料逐字符动态强一致性预审门禁 100% 达标。
+> **宿主自愈与伴生交付**：脚本支持自动嗅探宿主机 Playwright 运行环境，避免子工程重复安装重型依赖；同步伴生导出原生 Word (.docx) 与规范纯文本 (.txt)。
 
 ---
 
@@ -63,7 +63,7 @@ description: "通用计算机软件著作权 (CPCC) 申报套件与合规门禁�
    - 简称须与后续应用商店提审名称一致（如 `某某协同`，可选）。
 
 ### 步骤 2：一键抽取与直出官方标准 60 页 PDF
-调用本 Skill 内置脚本对源码进行深度清洗与排版（纯标准库，零外部依赖，自动直出 PDF）：
+调用本 Skill 内置脚本对源码进行深度清洗与排版（Playwright 矢量印刷，等宽字体，零乱码直出 PDF）：
 
 ```bash
 # 在当前待申报的项目根目录下执行 (使用 Skill 自带脚本的相对/动态路径)
@@ -74,7 +74,7 @@ python3 <path-to-skill>/scripts/export_copyright_source.py \
 
 > **注**：
 > - 脚本内置源码目录自动嗅探能力（自动探测 `src/`, `app/`, `apps/`, `lib/`, `packages/` 等），无需硬编码目录；
-> - 产物直出 `docs/copyright/source_code_60pages.pdf` (官方标准 UTF-8 PDF 格式)，并伴生生成 `.docx` (原生 Word) 与 `.txt`；
+> - 产物直出 `docs/copyright/source_code_60pages.pdf` (官方标准 UTF-8 矢量等宽 PDF 格式)，并伴生生成 `.docx` (原生 Word) 与 `.txt`；
 > - 每页 55 行纯净代码，带两端对齐页眉与矢量分隔线；自动将全项目真实有效行数 (SLOC) 同步回填至申报表卡。
 
 ### 步骤 3：生成申请表卡与说明书/设计说明书骨架 (Markdown + 原生 Word .docx 双轨交付)
@@ -93,13 +93,18 @@ python3 <path-to-skill>/scripts/export_copyright_source.py \
    产物包含 `docs/copyright/software_user_manual.docx` 与 `docs/copyright/software_design_specification.docx`。
 
 ### 步骤 4：静态门禁前置审查 (Copyright Doctor Pre-flight)
-在材料交付给人类前，强制执行 5 大维度合规预检门禁（支持 .md 与 .docx 双模语法智能审查）：
+在材料交付给人类前，强制执行 5 大维度合规预检门禁（支持 .md 与 .docx 双模语法智能审查，支持 `--dir` 全目录扫描或 `--file` 单文件审查）：
 
 ```bash
+# 全目录扫描
 python3 <path-to-skill>/scripts/audit_copyright_package.py \
   --dir docs/copyright \
   --app-name "某某数字化协同管理软件 V1.0" \
-  --version "V1.0"
+  --version "V1.0" \
+  --strict
+
+# 或使用 L0 基座快捷命令:
+just audit-copyright --dir docs/copyright --app-name "某某数字化协同管理软件 V1.0"
 ```
 
 **门禁核验 5 大通过卡点**：
@@ -109,14 +114,38 @@ python3 <path-to-skill>/scripts/audit_copyright_package.py \
 - [x] 鉴别材料大纲完备（用户手册截图规范 / 详细设计说明书架构与模块双流程图，支持 .md / .docx / .doc 版）；
 - [x] 全套材料软件全称与版本号 100% 逐字符动态强一致（包括大小写）。
 
+### 步骤 5：官方全套申报材料一键打包归档 (Submission Packaging)
+调用本套件内置打包中枢（对齐专利申报规范），一键组装 `submission_package/` 并输出归档压缩包：
+
+```bash
+# 执行打包并生成 SHA-256 校验和交付包
+python3 <path-to-skill>/scripts/package_copyright_submission.py \
+  --dir docs/copyright \
+  --app-name "某某数字化协同管理软件 V1.0" \
+  --version "V1.0" \
+  --company "某某科技有限公司"
+
+# 或直接调用 Base Justfile 注入的快捷 Recipe:
+just package-copyright --dir docs/copyright
+```
+
+**归档交付产物清单**：
+- `01_计算机软件著作权登记申请表信息卡.docx`：双列仿宋规范表格，涵盖三页全字段与主要功能五大核心板块；
+- `02_源程序代码60页规范打印稿.pdf`：官方标准 60 页纯净源程序代码（及伴生 `.docx`）；
+- `03_软件用户操作说明书.docx`：包含主界面全景图与功能操作指引；
+- `04_软件详细设计说明书.docx`：包含分层微模块架构与端到端流转流程图；
+- `05_CPCC合规自检与代理交底报告.docx`：有效代码行数 SLOC 统计与 0-Error 门禁自检证明；
+- `README_版权代理与申报指引.docx`：版权代理机构与法务团队在线填报指引；
+- `<project>_copyright_submission_package.zip`：包含全套材料并附带 SHA-256 校验和。
+
 ---
 
 ## 三、 线上提报实操指引
 
 材料生成并通过审计后，向用户提供以下 4 步无纸化申报指引：
 
-1. **源程序 PDF**：系统已直接生成合规的 `source_code_60pages.pdf`，无需任何手工转格式，直接上传即可；
+1. **源程序 PDF**：系统已直接生成合规的 `02_源程序代码60页规范打印稿.pdf`，无需任何手工转格式，直接上传即可；
 2. **说明书/设计说明书编辑与转 PDF**：
-   系统已直接生成规范的原生 Word 排版文档 (`software_user_manual.docx` 或 `software_design_specification.docx`)。直接使用 Word 或 WPS 打开，在预留的截图框中粘贴真实软件运行界面截图（确保截图包含正确的软件名称与版本号），编辑完成后直接「另存为 PDF」；
+   系统已直接生成规范的原生 Word 排版文档 (`03_软件用户操作说明书.docx` 或 `04_软件详细设计说明书.docx`)。直接使用 Word 或 WPS 打开，在预留的截图框中粘贴真实软件运行界面截图（确保截图包含正确的软件名称与版本号），编辑完成后直接「另存为 PDF」；
 3. **资质准备**：准备企业《营业执照副本》彩色扫描件加盖公章（或个人身份证扫描件）；
-4. **CPCC 在线提报**：登录 [中国版权保护中心微平台](https://register.ccopyright.com.cn/)，对照 `cpcc_application_info.md` 逐项复制填入，上传源码 PDF 与说明书 PDF 并提交签章。
+4. **CPCC 在线提报**：登录 [中国版权保护中心微平台](https://register.ccopyright.com.cn/)，对照 `01_计算机软件著作权登记申请表信息卡.docx` 逐项复制填入，上传源码 PDF 与说明书 PDF 并提交签章。

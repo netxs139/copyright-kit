@@ -211,7 +211,7 @@ def test_normalize_app_and_version():
 
 
 def test_export_as_pdf_generation(tmp_path: Path):
-    """Given 源码行集合 When 导出为官方 PDF 格式 Then 纯标准库输出符合规格的 A4 UTF-8 PDF 文件."""
+    """Given 源码行集合 When 导出为官方 PDF 格式 Then 矢量排版引擎输出符合规格的 A4 UTF-8 PDF 文件."""
     lines = [f"const record_{i} = {i}; // 业务逻辑代码" for i in range(110)]
     pdf_file = tmp_path / "source_code_60pages.pdf"
 
@@ -228,10 +228,8 @@ def test_export_as_pdf_generation(tmp_path: Path):
     assert pdf_file.stat().st_size > 1000
 
     content_bytes = pdf_file.read_bytes()
-    assert content_bytes.startswith(b"%PDF-1.4")
+    assert content_bytes.startswith(b"%PDF-")
     assert b"%%EOF" in content_bytes
-    assert b"/STSong-Light" in content_bytes
-    assert b"/UniGB-UTF16-H" in content_bytes
 
 
 def get_template_path() -> Path:
